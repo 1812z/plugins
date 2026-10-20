@@ -63,7 +63,7 @@ const DEFAULT_LED_COUNT = 60;
 const DEFAULT_UDP_PORT = 21324;
 
 let socket;
-let blackoutSocket;
+let auxSocket;
 let activeDevice;
 
 /* ---------------------------- helpers ---------------------------- */
@@ -96,6 +96,27 @@ function hasValue(value) {
 	return value !== undefined && value !== null && String(value).length > 0;
 }
 
+/* SignalRGB channel names should not contain dots (they break internal lookups). */
+function defaultDeviceName(ip) {
+	return "ESPHome " + String(ip).replace(/\./g, "-");
+}
+
+/* Stable, dot free, MAC style device id: 192.168.44.172 -> ESP-C0A82CAC */
+function deviceId(ip) {
+	const octets = String(ip).split(".").map((part) => ("0" + clampInt(part, 0, 255, 0).toString(16).toUpperCase()).slice(-2));
+	return "ESP-" + octets.join("");
+}
+
+function firstValue() {
+	for (let i = 0; i < arguments.length; i++) {
+		if (hasValue(arguments[i])) {
+			return arguments[i];
+		}
+	}
+
+	return undefined;
+}
+
 function isEnabled(value) {
 	return value === true || value === "true" || value === 1 || value === "1";
 }
@@ -117,17 +138,18 @@ function toPlainArray(colors) {
 }
 
 /* Write a full frame as one or more DNRGB packets. */
-function writeFrame(target, ip, port, rgbData, ledCount) {
+function writeFrame(target, ip, port, rgbData, ledCount, timeout) {
 	const colors = toPlainArray(rgbData);
 	const totalLeds = Math.min(ledCount, Math.floor(colors.length / 3));
 	const packetCount = Math.ceil(totalLeds / MAX_LEDS_PER_PACKET);
+	const keepAlive = timeout === undefined ? REALTIME_TIMEOUT : timeout;
 	let offset = 0;
 
 	for (let packet = 0; packet < packetCount; packet++) {
 		const ledsInPacket = Math.min(MAX_LEDS_PER_PACKET, totalLeds - offset);
 		const payload = [
 			PROTOCOL_DNRGB,
-			REALTIME_TIMEOUT,
+			keepAlive,
 			(offset >> 8) & 0xFF,
 			offset & 0xFF,
 		].concat(colors.slice(offset * 3, (offset + ledsInPacket) * 3));
@@ -137,17 +159,62 @@ function writeFrame(target, ip, port, rgbData, ledCount) {
 	}
 }
 
+function auxSocketGet() {
+	if (auxSocket === undefined) {
+		auxSocket = udp.createSocket();
+	}
+
+	return auxSocket;
+}
+
 /* Send a single black frame without needing a running plugin instance. */
 function sendBlackout(ip, port, ledCount) {
 	if (!isIPv4(ip)) {
 		return;
 	}
 
-	if (blackoutSocket === undefined) {
-		blackoutSocket = udp.createSocket();
+	writeFrame(auxSocketGet(), ip, port, new Array(ledCount * 3).fill(0), ledCount);
+}
+
+function hueToRgb(hue) {
+	const sector = Math.floor(hue * 6) % 6;
+	const frac = hue * 6 - Math.floor(hue * 6);
+	const up = Math.round(frac * 255);
+	const down = Math.round((1 - frac) * 255);
+
+	switch (sector) {
+		case 0: return [255, up, 0];
+		case 1: return [down, 255, 0];
+		case 2: return [0, 255, up];
+		case 3: return [0, down, 255];
+		case 4: return [up, 0, 255];
+		default: return [255, 0, down];
+	}
+}
+
+/* UI "Test" button: push a rainbow straight from the plugin UDP stack.
+ * timeout 255 = ESPHome/WLED never blanks it, so the strip stays lit. */
+function sendTestFrame(ip, port, ledCount) {
+	if (!isIPv4(ip)) {
+		service.log("WLED UDP: test frame skipped, invalid IP '" + ip + "'");
+		return;
 	}
 
-	writeFrame(blackoutSocket, ip, port, new Array(ledCount * 3).fill(0), ledCount);
+	const leds = clampInt(ledCount, 1, MAX_LED_COUNT, DEFAULT_LED_COUNT);
+	const colors = [];
+
+	for (let i = 0; i < leds; i++) {
+		const rgb = hueToRgb((i / Math.max(1, leds)) % 1);
+		colors.push(rgb[0], rgb[1], rgb[2]);
+	}
+
+	const target = auxSocketGet();
+
+	for (let repeat = 0; repeat < 5; repeat++) {
+		writeFrame(target, ip, port, colors, leds, 0xFF);
+	}
+
+	service.log("WLED UDP: test frame sent (rainbow) -> " + ip + ":" + port + " / " + leds + " LEDs");
 }
 
 /* ------------------------- rendering device ------------------------- */
@@ -160,11 +227,32 @@ class UDPRenderDevice {
 		this.udpPort = resolveUdpPort(controller.udpPort);
 		this.ledCount = resolveLedCount(controller.deviceledcount);
 		this.forceOff = false;
+		this.warnedNoChannel = false;
+		this.framesSent = 0;
 	}
 
 	setupChannel() {
-		device.setLedLimit(this.ledCount);
-		device.addChannel(this.name, this.ledCount);
+		try {
+			device.setLedLimit(this.ledCount);
+		} catch (e) {
+			service.log("WLED UDP: setLedLimit(" + this.ledCount + ") failed: " + e);
+		}
+
+		try {
+			device.addChannel(this.name, this.ledCount);
+		} catch (e) {
+			service.log("WLED UDP: addChannel('" + this.name + "', " + this.ledCount + ") failed: " + e);
+		}
+	}
+
+	findChannel() {
+		let channel = device.channel(this.name);
+
+		if (channel === undefined || channel === null) {
+			channel = device.channel(0);
+		}
+
+		return channel === undefined || channel === null ? null : channel;
 	}
 
 	turnOn() {
@@ -180,9 +268,14 @@ class UDPRenderDevice {
 			return;
 		}
 
-		const channel = device.channel(this.name);
+		const channel = this.findChannel();
 
-		if (channel === undefined || channel === null) {
+		if (channel === null) {
+			if (!this.warnedNoChannel) {
+				this.warnedNoChannel = true;
+				service.log("WLED UDP: no channel named '" + this.name + "' - check the LED count / reload the plugin");
+			}
+
 			return;
 		}
 
@@ -200,13 +293,31 @@ class UDPRenderDevice {
 		}
 
 		writeFrame(socket, this.ip, this.udpPort, rgbData, channelLeds);
+		this.framesSent++;
+
+		if (this.framesSent === 1) {
+			service.log("WLED UDP: first frame sent -> " + this.ip + ":" + this.udpPort + " (" + channelLeds + " LEDs)");
+		} else if (this.framesSent % 1800 === 0) {
+			service.log("WLED UDP: heartbeat, " + this.framesSent + " frames sent to " + this.ip);
+		}
 	}
 }
 
 /* --------------------------- plugin hooks --------------------------- */
 
 export function Initialize() {
-	device.setName(controller.name);
+	service.log("WLED UDP: Initialize() for " + (controller === undefined ? "?" : controller.name));
+
+	if (controller === undefined || controller === null) {
+		return;
+	}
+
+	try {
+		device.setName(controller.name);
+	} catch (e) {
+		service.log("WLED UDP: setName failed: " + e);
+	}
+
 	socket = udp.createSocket();
 	activeDevice = new UDPRenderDevice(controller);
 	activeDevice.setupChannel();
@@ -282,9 +393,9 @@ export function DiscoveryService() {
 		}
 
 		const value = {
-			"id": ip,
-			"mac": ip,
-			"name": hasValue(name) ? String(name) : ("ESPHome " + ip),
+			"id": deviceId(ip),
+			"mac": deviceId(ip),
+			"name": hasValue(name) ? String(name) : defaultDeviceName(ip),
 			"hostname": ip,
 			"ip": ip,
 			"udpPort": resolveUdpPort(port),
@@ -340,9 +451,9 @@ export function DiscoveryService() {
 		}
 
 		const record = {
-			"id": hasValue(value.mac) ? String(value.mac) : ip,
-			"mac": hasValue(value.mac) ? String(value.mac) : ip,
-			"name": hasValue(value.name) ? String(value.name) : ("ESPHome " + ip),
+			"id": hasValue(value.mac) ? String(value.mac) : deviceId(ip),
+			"mac": hasValue(value.mac) ? String(value.mac) : deviceId(ip),
+			"name": hasValue(value.name) ? String(value.name) : defaultDeviceName(ip),
 			"hostname": host,
 			"ip": ip,
 			"udpPort": resolveUdpPort(undefined),
@@ -417,15 +528,19 @@ class WLEDUdpBridge {
 	load(value) {
 		this.id = hasValue(value.id) ? String(value.id) : String(value.ip);
 		this.mac = hasValue(value.mac) ? String(value.mac) : this.id;
-		this.name = hasValue(value.name) ? String(value.name) : ("ESPHome " + value.ip);
+		const name = hasValue(value.name) ? String(value.name) : defaultDeviceName(value.ip);
+		/* dots are not allowed in SignalRGB channel names */
+		this.name = name.replace(/\./g, "-");
 		this.hostname = hasValue(value.hostname) ? String(value.hostname) : String(value.ip);
+		this.port = 80;
 		this.ip = String(value.ip === undefined ? "" : value.ip);
 		this.udpPort = resolveUdpPort(value.udpPort);
 		this.deviceledcount = resolveLedCount(value.leds);
 		this.forced = value.forced === true;
 
-		/* Saved values always win: that is our "linked" state. */
-		const savedIp = service.getSetting(this.id, "ip");
+		/* Saved values always win: that is our "linked" state.
+		 * Legacy builds keyed the settings by IP, so fall back to that. */
+		const savedIp = firstValue(service.getSetting(this.id, "ip"), service.getSetting(this.ip, "ip"));
 		this.connected = hasValue(savedIp);
 		this.readyToAnnounce = this.connected;
 
@@ -433,13 +548,13 @@ class WLEDUdpBridge {
 			this.ip = String(savedIp);
 		}
 
-		const savedLeds = service.getSetting(this.id, "leds");
+		const savedLeds = firstValue(service.getSetting(this.id, "leds"), service.getSetting(this.ip, "leds"));
 
 		if (hasValue(savedLeds)) {
 			this.deviceledcount = resolveLedCount(savedLeds);
 		}
 
-		const savedPort = service.getSetting(this.id, "port");
+		const savedPort = firstValue(service.getSetting(this.id, "port"), service.getSetting(this.ip, "port"));
 
 		if (hasValue(savedPort)) {
 			this.udpPort = resolveUdpPort(savedPort);
@@ -543,6 +658,11 @@ class WLEDUdpBridge {
 		}
 
 		service.updateController(this);
+	}
+
+	/* UI "Test" button - uses the plugin UDP stack, not the render loop. */
+	testFrame() {
+		sendTestFrame(this.ip, this.udpPort, this.deviceledcount);
 	}
 
 	turnOn() {

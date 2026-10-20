@@ -174,7 +174,7 @@ Item {
 
 			delegate: Item {
 				width: 450
-				height: 118
+				height: 122
 				property var device: model.modelData.obj
 
 				Rectangle {
@@ -187,11 +187,13 @@ Item {
 				Column {
 					x: 12
 					y: 8
-					width: parent.width - 160
-					spacing: 5
+					width: 240
+					spacing: 6
 
 					Text {
+						width: parent.width
 						color: theme.primarytextcolor
+						elide: Text.ElideRight
 						text: device.name
 						font.pixelSize: 16
 						font.family: "Poppins"
@@ -236,13 +238,13 @@ Item {
 				}
 
 				Column {
-					x: 300
-					y: 10
-					spacing: 8
+					x: 268
+					y: 8
+					spacing: 7
 
 					Item {
 						width: 128
-						height: 30
+						height: 28
 						Rectangle {
 							anchors.fill: parent
 							radius: 5
@@ -319,11 +321,35 @@ Item {
 							}
 						}
 					}
+
+					Item {
+						width: 128
+						height: 26
+						Rectangle {
+							anchors.fill: parent
+							radius: 5
+							color: testMouse.containsMouse ? "#1f4fff" : "#2a2a00"
+							Text {
+								anchors.centerIn: parent
+								color: "#ffd24a"
+								text: "Send test frame"
+								font.pixelSize: 12
+								font.family: "Poppins"
+								font.bold: true
+							}
+							MouseArea {
+								id: testMouse
+								anchors.fill: parent
+								hoverEnabled: true
+								onClicked: device.testFrame()
+							}
+						}
+					}
 				}
 
 				Item {
-					x: 410
-					y: 10
+					x: 406
+					y: 8
 					width: 26
 					height: 26
 					visible: device.forced

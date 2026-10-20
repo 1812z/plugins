@@ -59,8 +59,36 @@ then click **Link** on the device card.
   when the ESPHome node has no web server.
 - **LED count** — editable per device; ESPHome cannot report it over UDP.
 - **On / Off** — Off streams black frames (there is no state API to call).
+- **Send test frame** — pushes a rainbow straight through the plugin's UDP stack,
+  bypassing the render loop. If the strip lights up here but not with an effect,
+  the problem is on the SignalRGB side, not the network. The frame uses timeout
+  `255` (never blanks), so the strip stays lit until the next frame arrives.
 - **Link / Unlink** — attach or detach the device from the SignalRGB canvas.
 - **×** — remove a manually added device.
+
+## Troubleshooting
+
+Check the SignalRGB log for these three lines — they mean the render instance is alive:
+
+```
+WLED UDP: Initialize() for ...
+WLED UDP driving ... at 192.168.44.172:21324 (144 LEDs)
+WLED UDP: first frame sent -> 192.168.44.172:21324 (144 LEDs)
+```
+
+- only `announced ...` appears → the device is registered but the render instance never
+  started: click **Unlink** then **Link**, or delete and re-add the device.
+- `no channel named ...` → the LED count changed while running; reload the plugin.
+- nothing lights but the log shows frames → check the ESPHome side: light must be on,
+  `WLED` effect selected, `num_leds` matches, and the ESPHome log must not contain
+  `Cannot bind WLEDLightEffect to 21324`.
+
+`tools/wled_udp_test.py` sends the exact same packets without SignalRGB, which is the
+fastest way to prove the ESPHome side works:
+
+```bash
+python tools/wled_udp_test.py --ip 192.168.44.172 --leds 144 --mode rainbow --seconds 15
+```
 
 ## ESPHome vs WLED protocol byte numbering
 
