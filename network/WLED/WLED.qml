@@ -3,145 +3,153 @@ Item {
 	Column {
 		width: parent.width
 		height: parent.height
-		Column {
+		spacing: 0
+
+		Item {
 			width: 450
-			height: 105
-			Rectangle {
-				width: parent.width
-				height: parent.height - 10
-				color: "#333bff"
-				radius: 5
-				Column {
-					x: 10
-					y: 10
-					width: parent.width - 20
-					spacing: 0
-					Text {
-						color: theme.primarytextcolor
-						textFormat: Text.RichText
-						text: "<table><tr><td width=\"24\" style=\"text-align:center;vertical-align:middle\"><img src=\"https://raw.githubusercontent.com/SRGBmods/public/main/images/wled/info-circle-fill.png\"></style></td><td><u><strong>Important:<strong></u><br>this service <strong>ONLY</strong> works for devices<br><strong>based on ESP8266 / ESP8285 / ESP32 micro controllers</strong><br><strong>flashed with <style>a:link { color: \"#FFFFFF\"; }</style><a href=\"https://kno.wled.ge/\">WLED firmware</a></strong>!</td></tr></table>"
-						onLinkActivated: Qt.openUrlExternally(link)
-						font.pixelSize: 12
-						font.family: "Poppins"
-						font.bold: false
-					}
-				}
-			}
-		}
-		Column {
-			width: 450
-			height: 115
+			height: 92
 			Rectangle {
 				width: parent.width
 				height: parent.height - 10
 				color: "#141414"
 				radius: 5
 				Column {
-					x: 10
+					x: 12
 					y: 10
-					width: parent.width - 20
-					spacing: 0
+					width: parent.width - 24
+					spacing: 4
 					Text {
 						color: theme.primarytextcolor
-						text: "Discover WLED device by IP"
+						text: "WLED over UDP"
 						font.pixelSize: 16
+						font.family: "Poppins"
+						font.bold: true
+					}
+					Text {
+						width: parent.width
+						color: theme.primarytextcolor
+						wrapMode: Text.WordWrap
+						font.pixelSize: 12
+						font.family: "Poppins"
+						text: "Talks only UDP realtime (port 21324 / DNRGB). No port 80, no /json API, no web_server needed.<br>ESPHome: add <b>effects: - wled:</b> to your addressable light and select that effect."
+					}
+				}
+			}
+		}
+
+		Item {
+			width: 450
+			height: 104
+			Rectangle {
+				width: parent.width
+				height: parent.height - 10
+				color: "#141414"
+				radius: 5
+				Column {
+					x: 12
+					y: 10
+					width: parent.width - 24
+					spacing: 6
+					Text {
+						color: theme.primarytextcolor
+						text: "Add device by IP"
+						font.pixelSize: 14
 						font.family: "Poppins"
 						font.bold: true
 					}
 					Row {
 						spacing: 6
-						Image {
-							x: 10
-							y: 6
-							height: 50				
-							source: "https://raw.githubusercontent.com/SRGBmods/public/main/images/wled/998_led_nodemcu.png"
-							fillMode: Image.PreserveAspectFit
-							antialiasing: false
-							mipmap: false
+						TextField {
+							id: inputIP
+							width: 150
+							height: 34
+							leftPadding: 8
+							rightPadding: 8
+							color: theme.primarytextcolor
+							font.family: "Poppins"
+							font.bold: true
+							font.pixelSize: 14
+							verticalAlignment: TextInput.AlignVCenter
+							placeholderText: "192.168.0.50"
+							background: Rectangle {
+								radius: 5
+								color: "#0d0d0d"
+								border.color: "#1c1c1c"
+								border.width: 2
+							}
+							validator: RegularExpressionValidator {
+								regularExpression: /^((?:[0-1]?[0-9]?[0-9]|2[0-4][0-9]|25[0-5])\.){3}(?:[0-1]?[0-9]?[0-9]|2[0-4][0-9]|25[0-5])$/
+							}
 						}
-						Rectangle {
-							x: 10
-							y: 6
-							width: 200
-							height: 50
-							radius: 5
-							border.color: "#1c1c1c"
-							border.width: 2
-							color: "#141414"
-							TextField {
-								width: 180
-								leftPadding: 10
-								rightPadding: 10
-								id: discoverIP
-								x: 10
-								color: theme.primarytextcolor
-								font.family: "Poppins"
-								font.bold: true
-								font.pixelSize: 20
-								verticalAlignment: TextInput.AlignVCenter
-								placeholderText: "192.168.0.1"
-								onEditingFinished: {
-									discovery.forceDiscover(discoverIP.text);
+						TextField {
+							id: inputPort
+							width: 82
+							height: 34
+							leftPadding: 8
+							rightPadding: 8
+							color: theme.primarytextcolor
+							font.family: "Poppins"
+							font.pixelSize: 14
+							verticalAlignment: TextInput.AlignVCenter
+							text: "21324"
+							background: Rectangle {
+								radius: 5
+								color: "#0d0d0d"
+								border.color: "#1c1c1c"
+								border.width: 2
+							}
+							validator: IntValidator { bottom: 1; top: 65535 }
+						}
+						TextField {
+							id: inputLeds
+							width: 82
+							height: 34
+							leftPadding: 8
+							rightPadding: 8
+							color: theme.primarytextcolor
+							font.family: "Poppins"
+							font.pixelSize: 14
+							verticalAlignment: TextInput.AlignVCenter
+							placeholderText: "60"
+							background: Rectangle {
+								radius: 5
+								color: "#0d0d0d"
+								border.color: "#1c1c1c"
+								border.width: 2
+							}
+							validator: IntValidator { bottom: 1; top: 2000 }
+						}
+						Item {
+							width: 78
+							height: 34
+							Rectangle {
+								anchors.fill: parent
+								radius: 5
+								color: addMouse.containsMouse ? "#2b5bff" : "#003EFF"
+								Text {
+									anchors.centerIn: parent
+									color: "#ffffff"
+									text: "Add"
+									font.pixelSize: 14
+									font.family: "Poppins"
+									font.bold: true
 								}
-								validator: RegularExpressionValidator {
-									regularExpression:  /^((?:[0-1]?[0-9]?[0-9]|2[0-4][0-9]|25[0-5])\.){0,3}(?:[0-1]?[0-9]?[0-9]|2[0-4][0-9]|25[0-5])$/
-								}
-								background: Item {
-									width: parent.width
-									height: parent.height
-									Rectangle {
-										color: "transparent"
-										height: 1
-										width: parent.width
-										anchors.bottom: parent.bottom
+								MouseArea {
+									id: addMouse
+									anchors.fill: parent
+									hoverEnabled: true
+									onClicked: {
+										discovery.forceDiscover(inputIP.text, inputPort.text, inputLeds.text, "");
 									}
 								}
 							}
 						}
 					}
-				}
-				Column {
-					x: 260
-					y: 4
-					width: parent.width - 20
-					spacing: 10
-					Image {
-						x: 10
-						y: 10
-						height: 50				
-						source: "https://raw.githubusercontent.com/SRGBmods/public/main/images/wled/wled_logo_akemi.png"
-						fillMode: Image.PreserveAspectFit
-						antialiasing: false
-						mipmap: false
-					}
-				}
-				Column {
-					x: 285
-					y: 60
-					width: parent.width - 20
-					spacing: 10
-					Item{
-						Rectangle {
-							width: 120
-							height: 26
-							color: "#D65A00"
-							radius: 5
-						}
-						width: 120
-						height: 26
-						ToolButton {
-							height: 30
-							width: 120
-							anchors.verticalCenter: parent.verticalCenter
-							font.family: "Poppins"
-							font.bold: true
-							icon.source: "https://raw.githubusercontent.com/SRGBmods/public/main/images/wled/icon-discover.png"
-							text: "Discover"
-							anchors.right: parent.right
-							onClicked: {
-								discovery.forceDiscover(discoverIP.text);
-							}
-						}
+					Text {
+						color: "#8a8a8a"
+						text: "IP  ·  UDP port  ·  LED count"
+						font.pixelSize: 11
+						font.family: "Poppins"
 					}
 				}
 			}
@@ -149,226 +157,194 @@ Item {
 
 		ListView {
 			id: controllerList
-			model: service.controllers   
-			width: contentItem.childrenRect.width + (controllerListScrollBar.width * 1.5)
-			height: parent.height - 265
+			model: service.controllers
+			width: 450
+			height: parent.height - 200
 			clip: true
 
 			ScrollBar.vertical: ScrollBar {
-				id: controllerListScrollBar
 				anchors.right: parent.right
 				width: 10
-				visible: parent.height < parent.contentHeight
 				policy: ScrollBar.AlwaysOn
-
-				height: parent.availableHeight
 				contentItem: Rectangle {
 					radius: parent.width / 2
 					color: theme.scrollBar
 				}
 			}
 
-
 			delegate: Item {
-				visible: true
 				width: 450
-				height: 115
+				height: 118
 				property var device: model.modelData.obj
 
 				Rectangle {
 					width: parent.width
 					height: parent.height - 10
-					color: device.offline ? "#101010" : device.connected ? "#003EFF" : "#292929"
+					color: device.connected ? "#003EFF" : "#292929"
 					radius: 5
 				}
-				Column {
-					x: 260
-					y: 4
-					width: parent.width - 20
-					spacing: 10
-					Image {
-						x: 10
-						y: 10
-						height: 50				
-						source: device.offline ? "https://raw.githubusercontent.com/SRGBmods/public/main/images/wled/wled_logo_akemi_mono.png" : device.connected ? "https://raw.githubusercontent.com/SRGBmods/public/main/images/wled/wled_logo_akemi.png" : "https://raw.githubusercontent.com/SRGBmods/public/main/images/wled/wled_logo_akemi_mono.png"
-						fillMode: Image.PreserveAspectFit
-						antialiasing: false
-						mipmap: false
-					}
-				}
-				Column {
-					x: 285
-					y: 60
-					width: parent.width - 20
-					spacing: 10
-					Item{
-						Rectangle {
-							width: 120
-							height: 26
-							color: device.offline ? "#C0A21B" : device.connected ? "#292929" : "#003EFF"
-							radius: 5
-							MouseArea {
-								anchors.fill: parent
-								acceptedButtons: Qt.NoButton
-								cursorShape: Qt.ForbiddenCursor
-							}
-						}
-						width: 120
-						height: 26
-						ToolButton {
-							height: 30
-							width: 120
-							anchors.verticalCenter: parent.verticalCenter
-							font.family: "Poppins"
-							font.bold: true 
-							visible: device.offline ? false : device.connected
-							text: "Unlink"
-							anchors.right: parent.right
-							onClicked: {
-								device.startRemove();
-							}
-						}
-						ToolButton {
-							height: 30
-							width: 120
-							anchors.verticalCenter: parent.verticalCenter
-							font.family: "Poppins"
-							font.bold: true 
-							visible: device.offline ? false : !device.connected
-							text: "Link"
-							anchors.right: parent.right
-							onClicked: {
-								device.startLink();
-							}
-						}
-						Text {
-							anchors.verticalCenter: parent.verticalCenter
-							anchors.horizontalCenter: parent.horizontalCenter
-							color: theme.primarytextcolor
-							font.pixelSize: 15
-							font.family: "Poppins"
-							font.bold: true 
-							visible: device.offline
-							text: "OFFLINE!"
-						}
-					}
-				}
-				Column {
-					x: 10
-					y: 4
-					spacing: 6
-					Row {
-						width: parent.width - 20
-						spacing: 6
 
+				Column {
+					x: 12
+					y: 8
+					width: parent.width - 160
+					spacing: 5
+
+					Text {
+						color: theme.primarytextcolor
+						text: device.name
+						font.pixelSize: 16
+						font.family: "Poppins"
+						font.bold: true
+					}
+					Text {
+						color: theme.primarytextcolor
+						text: device.ip + " : " + device.udpPort
+						font.pixelSize: 12
+						font.family: "Poppins"
+					}
+					Row {
+						spacing: 6
 						Text {
+							anchors.verticalCenter: parent.verticalCenter
 							color: theme.primarytextcolor
-							text: device.name
-							font.pixelSize: 16
+							text: "LEDs"
+							font.pixelSize: 12
 							font.family: "Poppins"
+						}
+						TextField {
+							id: ledField
+							width: 64
+							height: 26
+							leftPadding: 6
+							rightPadding: 6
+							color: theme.primarytextcolor
+							text: device.deviceledcount
+							font.pixelSize: 12
+							font.family: "Poppins"
+							verticalAlignment: TextInput.AlignVCenter
+							background: Rectangle {
+								radius: 4
+								color: "#0d0d0d"
+							}
+							validator: IntValidator { bottom: 1; top: 2000 }
+							onEditingFinished: {
+								device.setLedCount(ledField.text);
+							}
+						}
+					}
+				}
+
+				Column {
+					x: 300
+					y: 10
+					spacing: 8
+
+					Item {
+						width: 128
+						height: 30
+						Rectangle {
+							anchors.fill: parent
+							radius: 5
+							color: linkMouse.containsMouse ? "#1f4fff" : (device.connected ? "#292929" : "#0f8a3d")
+							Text {
+								anchors.centerIn: parent
+								color: "#ffffff"
+								text: device.connected ? "Unlink" : "Link"
+								font.pixelSize: 13
+								font.family: "Poppins"
+								font.bold: true
+							}
+							MouseArea {
+								id: linkMouse
+								anchors.fill: parent
+								hoverEnabled: true
+								onClicked: {
+									if (device.connected) {
+										device.startRemove();
+									} else {
+										device.startLink();
+									}
+								}
+							}
+						}
+					}
+
+					Row {
+						spacing: 8
+
+						Item {
+							width: 60
+							height: 26
+							Rectangle {
+								anchors.fill: parent
+								radius: 5
+								color: onMouse.containsMouse ? "#3a3a3a" : "#1c1c1c"
+								Text {
+									anchors.centerIn: parent
+									color: theme.primarytextcolor
+									text: "On"
+									font.pixelSize: 12
+									font.family: "Poppins"
+								}
+								MouseArea {
+									id: onMouse
+									anchors.fill: parent
+									hoverEnabled: true
+									onClicked: device.turnOn()
+								}
+							}
+						}
+
+						Item {
+							width: 60
+							height: 26
+							Rectangle {
+								anchors.fill: parent
+								radius: 5
+								color: offMouse.containsMouse ? "#3a3a3a" : "#1c1c1c"
+								Text {
+									anchors.centerIn: parent
+									color: theme.primarytextcolor
+									text: "Off"
+									font.pixelSize: 12
+									font.family: "Poppins"
+								}
+								MouseArea {
+									id: offMouse
+									anchors.fill: parent
+									hoverEnabled: true
+									onClicked: device.turnOff()
+								}
+							}
+						}
+					}
+				}
+
+				Item {
+					x: 410
+					y: 10
+					width: 26
+					height: 26
+					visible: device.forced
+					Rectangle {
+						anchors.fill: parent
+						radius: 5
+						color: delMouse.containsMouse ? "#8a1010" : "#2a1010"
+						Text {
+							anchors.centerIn: parent
+							color: "#ff6b6b"
+							text: "×"
+							font.pixelSize: 16
 							font.bold: true
 						}
-						Image {
-							y: 3
-							id: iconSignalStrength
-							source: device.offline ? "https://raw.githubusercontent.com/SRGBmods/public/main/images/wled/device-offline.png" : device.signalstrength >= 90 ? "https://raw.githubusercontent.com/SRGBmods/public/main/images/wled/device-signal4.png" : device.signalstrength >= 75 ? "https://raw.githubusercontent.com/SRGBmods/public/main/images/wled/device-signal3.png" : device.signalstrength >= 60 ? "https://raw.githubusercontent.com/SRGBmods/public/main/images/wled/device-signal2.png" : device.signalstrength >= 50 ? "https://raw.githubusercontent.com/SRGBmods/public/main/images/wled/device-signal1.png" : "https://raw.githubusercontent.com/SRGBmods/public/main/images/wled/device-signal0.png"
+						MouseArea {
+							id: delMouse
+							anchors.fill: parent
+							hoverEnabled: true
+							onClicked: device.startDelete()
 						}
 					}
-					Row {
-						spacing: 6
-						Image {
-							visible: device.offline ? false : true
-							id: iconTurnOn
-							source: "https://raw.githubusercontent.com/SRGBmods/public/main/images/wled/device-turnon.png"
-							width: 16; height: 16
-							opacity: 1.0
-							MouseArea {
-								anchors.fill: parent
-								hoverEnabled: true
-								acceptedButtons: Qt.LeftButton
-								onClicked: {
-									 device.turnOn();
-								}
-								onEntered: {
-									iconTurnOn.opacity = 0.8;
-								}
-								onExited: {
-									iconTurnOn.opacity = 1.0;
-								}
-							}
-						}
-						Image {
-							visible: device.offline ? false : true
-							id: iconTurnOff
-							source: "https://raw.githubusercontent.com/SRGBmods/public/main/images/wled/device-turnoff.png"
-							width: 16; height: 16
-							opacity: 1.0
-							MouseArea {
-								anchors.fill: parent
-								hoverEnabled: true
-								acceptedButtons: Qt.LeftButton
-								onClicked: {
-									 device.turnOff();
-								}
-								onEntered: {
-									iconTurnOff.opacity = 0.8;
-								}
-								onExited: {
-									iconTurnOff.opacity = 1.0;
-								}
-							}
-						}
-						Image {
-							id: iconDelete
-							source: "https://raw.githubusercontent.com/SRGBmods/public/main/images/wled/device-delete.png"
-							width: 16; height: 16
-							visible: device.forced ? true : false
-							opacity: 1.0
-							MouseArea {
-								anchors.fill: parent
-								hoverEnabled: true
-								acceptedButtons: Qt.LeftButton
-								onClicked: {
-									 device.startDelete();
-								}
-								onEntered: {
-									iconDelete.opacity = 0.8;
-								}
-								onExited: {
-									iconDelete.opacity = 1.0;
-								}
-							}
-						}
-						Image {
-							id: iconForceAdd
-							source: "https://raw.githubusercontent.com/SRGBmods/public/main/images/wled/device-forceadd.png"
-							width: 16; height: 16
-							visible: device.forced ? false : true
-							opacity: 1.0
-							MouseArea {
-								anchors.fill: parent
-								hoverEnabled: true
-								acceptedButtons: Qt.LeftButton
-								onClicked: {
-									 device.startForceDiscover();
-								}
-								onEntered: {
-									iconForceAdd.opacity = 0.8;
-								}
-								onExited: {
-									iconForceAdd.opacity = 1.0;
-								}
-							}
-						}
-					}
-					Text {
-						color: theme.primarytextcolor
-						text: "MAC: " + device.mac + "  |  IP: " + device.ip + ":" + device.streamingPort
-					}
-					Text {
-						color: theme.primarytextcolor
-						text: "Arch: " + device.arch + " @ " + device.firmwareversion + "  |  LED count: " + device.deviceledcount
-					}		  
 				}
 			}
 		}
